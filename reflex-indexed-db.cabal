@@ -1,4 +1,4 @@
-name:                reflex-indexdb
+name:                reflex-indexed-db
 version:             0.1.0.0
 -- synopsis:
 -- description:
@@ -36,7 +36,7 @@ test-suite reflex-indexdb-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
-                     , reflex-indexdb
+                     , reflex-indexed-db
                      , reflex-dom >= 0.3
                      , text
                      , transformers >= 0.4

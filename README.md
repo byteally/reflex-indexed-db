@@ -1,1 +1,1 @@
-Reflex IndexDB Library
+Reflex IndexedDB Library
