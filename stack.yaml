@@ -1,0 +1,25 @@
+resolver: lts-6.21
+
+packages:
+- '.'
+
+extra-deps:
+# - ghcjs-dom-0.2.3.1
+- reflex-0.4.0
+- reflex-dom-0.3
+- ref-tf-0.4
+flags: {}
+
+extra-package-dbs: []
+
+compiler: ghcjs-0.2.0.9006021_ghc-7.10.3
+compiler-check: match-exact
+
+setup-info:
+  ghcjs:
+    source:
+      ghcjs-0.2.0.9006021_ghc-7.10.3:
+         url: http://ghcjs.tolysz.org/lts-6.21-9006021.tar.gz
+         sha1: 80b83f85dcec182093418e843979f4cee092fa85
+
+
