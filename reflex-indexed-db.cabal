@@ -37,6 +37,7 @@ test-suite reflex-indexdb-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   build-depends:       base
+                     , ghcjs-dom
                      , reflex-indexed-db
                      , reflex-dom
                      , text

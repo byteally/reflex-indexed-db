@@ -1,8 +1,10 @@
+{-# LANGUAGE OverloadedStrings #-}
 
 import Reflex.IDB
 import Reflex.Dom
 import qualified Data.Text as T
 import Control.Monad.IO.Class
+import qualified GHCJS.DOM.Enums as DOM
 
 testIDB :: IO ()
 testIDB = mainWidget $ do
@@ -10,7 +12,7 @@ testIDB = mainWidget $ do
   todoAddE <- el "div" $ do
     toDotxt <- textInput def
     addE <- button "+"
-    let todoAddE = tagDyn (_textInput_value toDotxt) addE
+    let todoAddE = tagPromptlyDyn (_textInput_value toDotxt) addE
     return (todoAddE)
   let idbOpenReq = IndexedDBOpen (T.pack "foo") 1 closeE
   idbE <- indexedDB idbOpenReq $ do
@@ -18,21 +20,21 @@ testIDB = mainWidget $ do
 --    deleteObjectStore (T.pack "todo")
     return ()
   let idb = (unSafeRight idbE)
-  tres <- runTransaction idb (TransactionConfig [T.pack "todo"] ReadWrite todoAddE never) $ do
-    todoSt <- openStore (T.pack "todo")
+  tres <- runTransaction idb (TransactionConfig ["todo"] DOM.IDBTransactionModeReadwrite todoAddE never) $ do
+    todoSt <- openStore "todo"
     inp <- getInput
-    add todoSt (T.pack "testV") (Just $ T.pack inp)
-    add todoSt (T.pack "testV") (Just $ T.pack $ inp ++ "_1")
+    add todoSt (T.pack "testV") (Just $ inp)
+    add todoSt (T.pack "testV") (Just $ inp <> "_1")
     liftIO $ print inp
     return ()
   dynText =<< (holdDyn "Waiting.." $ case idbE of
     Left e  -> never
-    Right r -> fmap show $ _idb_isOpen r)
+    Right r -> fmap (T.pack . show) $ _idb_isOpen r)
   dynText =<< (holdDyn "Upgarding.." $ case idbE of
     Left e  -> never
-    Right r -> fmap show $ _idb_onUpgrading r)
+    Right r -> fmap (T.pack . show) $ _idb_onUpgrading r)
   dynText =<< (holdDyn "trans ..." $ ffor tres $ \tres' -> case tres' of
-                  Left e -> "Trans err: " ++ show e
+                  Left e -> "Trans err: " <> T.pack (show e)
                   Right r -> "trans done")
   return ()
     where unSafeRight (Right r) = r
