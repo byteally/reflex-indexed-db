@@ -86,11 +86,8 @@ indexedDB :: forall t m.
             ) => IndexedDBOpen t -> (forall t1. (Reflex t1) => Database t1 IO ()) -> m (Either IDBError (IndexedDB t))
 indexedDB idbReq upgrade' = do
   let upgrade = upgrade' :: Database t IO ()
-  -- wv <- askWebView
-  -- postGui <- askPostGui
-  -- runWithActions <- askRunWithActions
-  (eOpen, eOpenTriggerRef) <- newEventWithTriggerRef
-  (eUpgrade, eUpgradeTriggerRef) <- newEventWithTriggerRef
+  (eOpen, eOpenTrigger) <- newTriggerEvent
+  (eUpgrade, eUpgradeTrigger) <- newTriggerEvent
   idbRef <- liftIO $ newIORef Nothing
   let onBlocked :: IO ()
       onBlocked = return ()
@@ -99,14 +96,9 @@ indexedDB idbReq upgrade' = do
         -- TODO: Probably needs to generalize IO to WidgetHost m
         --       Requires a fn WidgetHost m (Either Text ()) -> IO (Either Text ())
         res <- upgardeRes
-        -- mt <- readRef eUpgradeTriggerRef
-        -- forM_ mt $ \t -> fire [t :=> Identity res]
-        return ()
+        eUpgradeTrigger res
       onSuccess :: IndexedDBState -> IO ()
-      onSuccess idbSt = do
-        -- mt <- readRef eOpenTriggerRef
-        -- forM_ mt $ \t -> fire [t :=> Identity idbSt]
-        return ()
+      onSuccess idbSt = eOpenTrigger idbSt
       onError :: IO ()
       onError = do
         print "error openining db"

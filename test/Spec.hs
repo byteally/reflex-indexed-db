@@ -27,9 +27,8 @@ testIDB = mainWidget $ do
     add todoSt (T.pack "testV") (Just $ inp <> "_1")
     liftIO $ print inp
     return ()
-  dynText =<< (holdDyn "Waiting.." $ case idbE of
-    Left e  -> never
-    Right r -> fmap (T.pack . show) $ _idb_isOpen r)
+  text "Is DB Open: "
+  dynText (fmap (T.pack . show . not . isClosed) $ _idb_state $ unSafeRight idbE)
   dynText =<< (holdDyn "Upgarding.." $ case idbE of
     Left e  -> never
     Right r -> fmap (T.pack . show) $ _idb_onUpgrading r)
