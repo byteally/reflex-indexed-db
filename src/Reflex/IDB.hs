@@ -15,50 +15,43 @@ module Reflex.IDB where
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Ref
-import           Control.Monad.Trans.Class       (MonadTrans, lift)
+import           Control.Monad.Trans.Class  (MonadTrans, lift)
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Free
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.State       hiding (get)
-import           Data.Aeson                      as A
-import           Data.ByteString                 (ByteString)
-import qualified Data.ByteString                 as BS
+import           Control.Monad.Trans.State  hiding (get)
+import           Data.Aeson                 as A
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS
 import           Data.Default
-import           Data.Dependent.Map              (DSum (..))
+import           Data.Dependent.Map         (DSum (..))
 import           Data.Functor.Identity
 import           Data.IORef
-import           Data.Maybe                      (fromMaybe)
+import           Data.Maybe                 (fromMaybe)
 import           Data.Proxy
-import           Data.Text                       (Text)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
 import           Data.Word
 import           GHC.TypeLits
 import           GHCJS.DOM
-import qualified GHCJS.DOM.Enums                 as DOM
+import qualified GHCJS.DOM.Enums            as DOM
 import           GHCJS.DOM.EventM
-import qualified GHCJS.DOM.IDBCursor             as IDBCurs
-import qualified GHCJS.DOM.IDBDatabase           as IDBD
-import qualified GHCJS.DOM.IDBFactory            as IDBF
-import qualified GHCJS.DOM.IDBKeyRange           as IDBKeyRan
-import qualified GHCJS.DOM.IDBObjectStore        as IDBStore
-import qualified GHCJS.DOM.IDBOpenDBRequest      as IDBOReq
-import qualified GHCJS.DOM.IDBRequest            as IDBReq
-import qualified GHCJS.DOM.IDBTransaction        as IDBTrans
-import qualified GHCJS.DOM.Types                 as DOM
-import qualified GHCJS.DOM.Window                as FFIWin
-import           Prelude                         hiding ((!!))
+import qualified GHCJS.DOM.IDBCursor        as IDBCurs
+import qualified GHCJS.DOM.IDBDatabase      as IDBD
+import qualified GHCJS.DOM.IDBFactory       as IDBF
+import qualified GHCJS.DOM.IDBKeyRange      as IDBKeyRan
+import qualified GHCJS.DOM.IDBObjectStore   as IDBStore
+import qualified GHCJS.DOM.IDBOpenDBRequest as IDBOReq
+import qualified GHCJS.DOM.IDBRequest       as IDBReq
+import qualified GHCJS.DOM.IDBTransaction   as IDBTrans
+import qualified GHCJS.DOM.Types            as DOM
+import qualified GHCJS.DOM.Window           as FFIWin
+import           Prelude                    hiding ((!!))
 import           Reflex
 import           Reflex.Dom.Class
 import           Reflex.Dom.Core
 import           Reflex.Host.Class
 
--- Exp
-import qualified Data.Text                       as T
--- import           GHCJS.DOM.JSFFI.Generated.WindowTimers
-import           GHCJS.Foreign.Callback
-import           GHCJS.Foreign.Callback.Internal
-import           GHCJS.Marshal
-import           GHCJS.Types
---
 
 
 -- | Tag the 'Nothing' value of a 'Maybe'
@@ -83,46 +76,46 @@ newtype IDBResult t a = IDBResult (Event t (Either IDBError a))
 indexedDB :: forall t m.
             ( HasWebView m
             , MonadWidget t m
-            ) => IndexedDBOpen t -> (forall t1. (Reflex t1) => Database t1 IO ()) -> m (Either IDBError (IndexedDB t))
+            ) => IndexedDBOpen t -> (forall t1. (Reflex t1) => Database t1 DOM.JSM ()) -> m (Either IDBError (IndexedDB t))
 indexedDB idbReq upgrade' = do
-  let upgrade = upgrade' :: Database t IO ()
+  let upgrade = upgrade' :: Database t DOM.JSM ()
   (eOpen, eOpenTrigger) <- newTriggerEvent
   (eUpgrade, eUpgradeTrigger) <- newTriggerEvent
   idbRef <- liftIO $ newIORef Nothing
-  let onBlocked :: IO ()
+  let onBlocked :: DOM.JSM ()
       onBlocked = return ()
-      onUpgradeNeeded :: IO (Either Text ()) -> IO ()
+      onUpgradeNeeded :: DOM.JSM (Either Text ()) -> DOM.JSM ()
       onUpgradeNeeded upgardeRes = do
         -- TODO: Probably needs to generalize IO to WidgetHost m
         --       Requires a fn WidgetHost m (Either Text ()) -> IO (Either Text ())
         res <- upgardeRes
-        eUpgradeTrigger res
-      onSuccess :: IndexedDBState -> IO ()
-      onSuccess idbSt = eOpenTrigger idbSt
-      onError :: IO ()
+        liftIO $ eUpgradeTrigger res
+      onSuccess :: IndexedDBState -> DOM.JSM ()
+      onSuccess idbSt = liftIO $ eOpenTrigger idbSt
+      onError :: DOM.JSM ()
       onError = do
-        print "error openining db"
+        liftIO $ print "error openining db"
         return ()
-  res <- liftIO $ runExceptT $ do
+  res <- DOM.liftJSM $ runExceptT $ do
     wind <- currentWindow !? "Unable to get window object"
     idbFact <- FFIWin.getIndexedDB wind
     idbOpenReq <- IDBF.open idbFact idbName (Just idbVer)
-    _ <- liftIO $ on idbOpenReq IDBOReq.blocked $ liftIO onBlocked
-    _ <- liftIO $ on idbOpenReq IDBReq.success $ do
+    _ <- DOM.liftJSM $ on idbOpenReq IDBOReq.blocked $ DOM.liftJSM onBlocked
+    _ <- DOM.liftJSM $ on idbOpenReq IDBReq.success $ do
       tgt <- target
       let idbReq = maybe (error "Error getting idb request") id tgt :: IDBReq.IDBRequest
       idbAny <- IDBReq.getResult idbReq !! "Error getting Database"
       idb <- DOM.castTo IDBD.IDBDatabase idbAny !! "Error converting to database"
       liftIO $ writeIORef idbRef (Just idb)
-      liftIO (onSuccess .  Open . IDBRef =<< newIORef idb)
-    _ <- liftIO $ on idbOpenReq IDBReq.error $ liftIO onError
-    _ <- liftIO $ on idbOpenReq IDBOReq.upgradeNeeded $ do
+      DOM.liftJSM (onSuccess .  Open . IDBRef =<< liftIO (newIORef idb))
+    _ <- DOM.liftJSM $ on idbOpenReq IDBReq.error $ DOM.liftJSM onError
+    _ <- DOM.liftJSM $ on idbOpenReq IDBOReq.upgradeNeeded $ do
       idbReq :: IDBReq.IDBRequest <- target !! "Error getting idb request"
-      idbAny <- liftIO (IDBReq.getResult idbReq) !! "Error getting database"
+      idbAny <- (IDBReq.getResult idbReq) !! "Error getting database"
       idb <- DOM.castTo IDBD.IDBDatabase idbAny !! "Error getting idb"
       let upgradeCode = runDatabase upgrade
       let res = runExceptT (iterT (interpertDB idb) upgradeCode)
-      liftIO $ onUpgradeNeeded res
+      DOM.liftJSM $ onUpgradeNeeded res
       return ()
     return ()
   closeE <- performEvent $ ffor (_idb_close idbReq) $ \_ -> do
@@ -352,7 +345,7 @@ runTransaction idb transCfg transact = do
         Nothing -> do
           IDBStore.countRange store Nothing
         Just (Left keyName) -> do
-          keyVal <- liftIO $ toJSVal keyName
+          keyVal <- DOM.liftJSM $ DOM.toJSVal keyName
           IDBStore.count store keyVal
         Just (Right krange) -> do
           case krange of
@@ -371,7 +364,7 @@ runTransaction idb transCfg transact = do
       f (Left $ T.pack "TODO")
 
     interpret input idbTrans (OpGet (ObjectStore store) key f) = do
-      keyVal <- liftIO $ toJSVal key
+      keyVal <- DOM.liftJSM $ DOM.toJSVal key
       req <- IDBStore.get store key
       f (Left $ T.pack "TODO")
 
