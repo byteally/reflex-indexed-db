@@ -258,7 +258,7 @@ currentUpdate item = Cursor $ liftF $ OpCurUpdate item ()
 currentDelete :: (Monad m) => Cursor t s m ()
 currentDelete = Cursor $ liftF $ OpCurDelete ()
 
-type Item = Text
+type Item = A.Value
 
 newtype Cursor t s m a = Cursor { runCursor :: FreeT (CursorOp t Item) (ExceptT IDBError (StateT s m)) a}
                        deriving ( Functor

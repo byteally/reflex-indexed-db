@@ -2,6 +2,7 @@
 
 import Reflex.IDB
 import Reflex.Dom
+import qualified Data.Aeson as A
 import qualified Data.Text as T
 import Control.Monad.IO.Class
 import qualified GHCJS.DOM.Enums as DOM
@@ -23,8 +24,8 @@ testIDB = mainWidget $ do
   tres <- runTransaction idb (TransactionConfig ["todo"] DOM.IDBTransactionModeReadwrite todoAddE never) $ do
     todoSt <- openStore "todo"
     inp <- getInput
-    add todoSt (T.pack "testV") (Just $ inp)
-    add todoSt (T.pack "testV") (Just $ inp <> "_1")
+    add todoSt (A.String "testV") (Just $ inp)
+    add todoSt (A.object ["name" A..= T.pack "byteally"]) (Just $ inp <> "_1")
     liftIO $ print inp
     return ()
   text "Is DB Open: "
