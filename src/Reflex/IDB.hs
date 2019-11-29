@@ -1,5 +1,6 @@
 -- |
 
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -286,8 +287,10 @@ newtype IDB t r m a = IDB { runIDB :: FreeT (StoreOp t Item m) (ExceptT IDBError
                            , MonadIO
                            )
 
+#ifndef ghcjs_HOST_OS
 instance DOM.MonadJSM m => DOM.MonadJSM (IDB t r m) where
   liftJSM' = IDB . FreeT . liftM Pure . DOM.liftJSM
+#endif
 
 openStore :: (Monad m) => Text -> IDB t r m (ObjectStore t)
 openStore store = IDB $ liftF $ OpOpenStore store id
