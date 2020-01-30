@@ -57,14 +57,6 @@ import           Reflex.Dom.Class
 import           Reflex.Dom.Core
 import           Reflex.Host.Class
 
--- tmp
-import           Control.Lens                      ((^.))
-import qualified GHCJS.DOM                         as DOM
-import           GHCJS.DOM.Types                   (MonadJSM, liftJSM)
-import qualified GHCJS.DOM.Window                  as Window
-import qualified Language.Javascript.JSaddle       as JSaddle
-import qualified Language.Javascript.JSaddle.Types as JSaddle
-
 
 -- | Tag the 'Nothing' value of a 'Maybe'
 note :: a -> Maybe b -> Either a b
@@ -372,7 +364,7 @@ interpret input idbTrans (OpOpenStore storeN f) = do
 interpret input idbTrans (OpAdd (ObjectStore store) item key f) = do
       liftIO $ print $ "adding " ++ (show key)
       req <- IDBStore.add store item key
-      liftJSM syncPoint
+      DOM.liftJSM syncPoint
       f
 interpret input idbTrans (OpClear (ObjectStore store) f) = do
       req <- IDBStore.clear store
@@ -398,38 +390,20 @@ interpret input idbTrans (OpCount (ObjectStore store) key f) = do
             Only k -> do
               range <- IDBKeyRan.only k
               IDBStore.countRange store (Just range)
-      f (Left $ T.pack "TODOS")
+      f (Left $ T.pack "TODO")
 interpret input idbTrans (OpGet (ObjectStore store) key f) = do
-      consoleLog $ T.pack "idb Get handler"
-      alert $ T.pack "idb Get handler"
       keyVal <- DOM.liftJSM $ DOM.toJSVal key
-      consoleLog keyVal
-      alert (T.pack ("key: " ++ show key))
       resultVar <- liftIO $ atomically $ STM.newEmptyTMVar
-      consoleLog $ T.pack "created Get tmvar"
       req <- IDBStore.get store key
-      consoleLog $ T.pack "created request"
       DOM.liftJSM $ on req IDBReq.success $ do
-        consoleLog $ T.pack "in get success handler"
-
-        -- r <- IDBReq.getResultUnchecked (req :: Int)
         r <- IDBReq.getResult req
-        consoleLog $ T.pack "called getResult, got: "
         r' <- case r of
-          Nothing -> consoleLog (T.pack "fail after success") >> alert (T.pack "fail after success") >> return (Left $ T.pack "getResult failed after success event")
+          Nothing -> return (Left $ T.pack "getResult failed after success event")
           Just reqResult -> do
-            liftJSM syncPoint
-            consoleLog $ T.pack "get success handler got Just reqResult"
+            DOM.liftJSM syncPoint
             DOM.liftJSM $ fmap Right $ DOM.fromJSVal =<< DOM.toJSVal reqResult
-
-        consoleLog $ T.pack "about to putTMVar"
-        alert $ T.pack "about to put TMVar"
         liftIO $ atomically $ STM.putTMVar resultVar r'
-        consoleLog $ T.pack "finished putTMVar"
-        alert $ T.pack "finished putTMVar"
-
-      consoleLog "registered get handler"
-      liftIO (atomically (STM.readTMVar resultVar)) >>= \res -> consoleLog "f res" >> f res
+      liftIO (atomically (STM.readTMVar resultVar)) >>= f
 interpret input idbTrans (OpGetAll (ObjectStore store) key kcount f) = do
   error "getAll is not available in GHCJS"
 interpret input idbTrans (OpGetAllKeys (ObjectStore store) key kcount f) = do
@@ -488,18 +462,3 @@ interpretCursor curs (OpContinue f) = do
 
 getInput :: Monad m => IDB t r m r
 getInput = IDB ((lift . lift) ask)
-
-consoleLog :: (JSaddle.ToJSVal a, MonadJSM m) => a -> m ()
-consoleLog v = liftJSM $ do
-  w <- JSaddle.jsg ("console" :: String)
-  jsv <- JSaddle.toJSVal v
-  w ^. JSaddle.js1 ("log" :: String) jsv
-  return ()
-
-
-
-
-alert :: (MonadJSM m) => T.Text -> m ()
-alert txt = do
-  win <- DOM.currentWindowUnchecked
-  liftJSM (Window.alert win txt)
